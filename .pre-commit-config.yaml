@@ -11,6 +11,16 @@ repos:
       - id: ruff-format
         files: ^backend/
 
+  # Mypy - Python type checking
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run --directory backend mypy app --ignore-missing-imports
+        language: system
+        files: ^backend/app/.*\.py$
+        pass_filenames: false
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
