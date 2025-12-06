@@ -1,5 +1,7 @@
 """Application configuration."""
 
+from functools import cached_property
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,15 +31,22 @@ class Settings(BaseSettings):
     # Application
     environment: str = "development"
     debug: bool = True
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # Store as string, convert to list via property
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # File uploads
     max_upload_size_mb: int = 10
     upload_dir: str = "/data/uploads"
 
+    @cached_property
+    def cors_origins_list(self) -> list[str]:
+        """Get CORS origins as a list (comma-separated string to list)."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="ignore",  # Ignore extra env vars not defined in Settings
     )
 
 
