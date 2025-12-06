@@ -6,7 +6,7 @@ export default function Home() {
         <p className="mt-4 text-lg text-muted-foreground">
           AI-enhanced job search application
         </p>
-        <div className="mt-8 flex gap-4 justify-center">
+        <div className="mt-8 flex justify-center gap-4">
           <a
             href="/login"
             className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
