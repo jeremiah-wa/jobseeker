@@ -23,7 +23,15 @@ class TestUserModel:
     def test_user_model_has_required_columns(self) -> None:
         """Test User model has all required columns."""
         columns = {c.name for c in User.__table__.columns}
-        expected = {"id", "email", "hashed_password", "full_name", "tier", "created_at", "updated_at"}
+        expected = {
+            "id",
+            "email",
+            "hashed_password",
+            "full_name",
+            "tier",
+            "created_at",
+            "updated_at",
+        }
         assert expected.issubset(columns)
 
     @pytest.mark.unit
@@ -46,8 +54,15 @@ class TestCVModel:
         """Test CV model has all required columns."""
         columns = {c.name for c in CV.__table__.columns}
         expected = {
-            "id", "user_id", "filename", "file_path", "raw_text",
-            "parsed_data", "is_primary", "created_at", "updated_at"
+            "id",
+            "user_id",
+            "filename",
+            "file_path",
+            "raw_text",
+            "parsed_data",
+            "is_primary",
+            "created_at",
+            "updated_at",
         }
         assert expected.issubset(columns)
 
@@ -81,8 +96,16 @@ class TestSavedJobModel:
         """Test SavedJob model has all required columns."""
         columns = {c.name for c in SavedJob.__table__.columns}
         expected = {
-            "id", "user_id", "job_source", "job_external_id", "job_data",
-            "status", "notes", "tailored_cv_id", "created_at", "updated_at"
+            "id",
+            "user_id",
+            "job_source",
+            "job_external_id",
+            "job_data",
+            "status",
+            "notes",
+            "tailored_cv_id",
+            "created_at",
+            "updated_at",
         }
         assert expected.issubset(columns)
 
@@ -106,10 +129,7 @@ class TestTailoredCVModel:
     def test_tailored_cv_model_has_required_columns(self) -> None:
         """Test TailoredCV model has all required columns."""
         columns = {c.name for c in TailoredCV.__table__.columns}
-        expected = {
-            "id", "user_id", "base_cv_id", "content", "version",
-            "created_at", "updated_at"
-        }
+        expected = {"id", "user_id", "base_cv_id", "content", "version", "created_at", "updated_at"}
         assert expected.issubset(columns)
 
     @pytest.mark.unit
