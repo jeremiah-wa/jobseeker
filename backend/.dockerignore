@@ -10,5 +10,6 @@ htmlcov
 *.egg-info
 .git
 *.md
+!README.md
 .env*
 tests/

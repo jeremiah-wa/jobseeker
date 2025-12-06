@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Install dependencies
 RUN uv sync --no-dev
