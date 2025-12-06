@@ -17,7 +17,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
 
     # Authentication
-    "passlib[bcrypt]>=1.7.4",
+    "argon2-cffi>=23.1.0",
     "python-jose[cryptography]>=3.3.0",
 
     # LLM
@@ -30,6 +30,7 @@ dependencies = [
     # Utilities
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
+    "email-validator>=2.0.0",
     "httpx>=0.28.0",
     "python-dotenv>=1.0.0",
 ]
