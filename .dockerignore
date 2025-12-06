@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.so
+.Python
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+*.egg-info
+
+# Node
+node_modules
+.next
+out
+.turbo
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Testing
+coverage
+.coverage
