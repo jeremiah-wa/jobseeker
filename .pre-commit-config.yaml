@@ -11,6 +11,16 @@ repos:
       - id: ruff-format
         files: ^backend/
 
+  # Mypy - Python type checking
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run --directory backend mypy app --ignore-missing-imports
+        language: system
+        files: ^backend/app/.*\.py$
+        pass_filenames: false
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -22,3 +32,19 @@ repos:
         args: [--maxkb=1000]
       - id: check-merge-conflict
       - id: mixed-line-ending
+
+  # Frontend linting
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: pnpm --prefix frontend lint
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+      - id: prettier
+        name: Prettier
+        entry: pnpm --prefix frontend format:check
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
+        pass_filenames: false

@@ -24,14 +24,15 @@ services:
       dockerfile: Dockerfile.dev
     container_name: jobseeker-backend
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-jobseeker}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-jobseeker}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://jobseeker:change-me@db:5432/jobseeker}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-change-me-in-production}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
-      ENVIRONMENT: development
-      DEBUG: "true"
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - ./backend:/app
       - backend_uploads:/data/uploads
@@ -54,7 +55,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: jobseeker-frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
     volumes:
       - ./frontend:/app
       - /app/node_modules
