@@ -22,3 +22,19 @@ repos:
         args: [--maxkb=1000]
       - id: check-merge-conflict
       - id: mixed-line-ending
+
+  # Frontend linting
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: pnpm --prefix frontend lint
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+      - id: prettier
+        name: Prettier
+        entry: pnpm --prefix frontend format:check
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
+        pass_filenames: false

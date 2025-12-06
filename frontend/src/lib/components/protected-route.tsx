@@ -2,11 +2,11 @@
  * Protected route wrapper component
  */
 
-'use client';
+"use client";
 
-import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/contexts/auth-context';
+import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/contexts/auth-context";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,7 +18,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
 
