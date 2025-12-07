@@ -12,7 +12,7 @@ export const env = createEnv({
    * Must be prefixed with NEXT_PUBLIC_.
    */
   client: {
-    NEXT_PUBLIC_API_URL: z.string().url(),
+    NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:8000/api"),
     NEXT_PUBLIC_MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(2),
   },
 
