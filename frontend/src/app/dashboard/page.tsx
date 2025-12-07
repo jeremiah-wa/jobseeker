@@ -4,6 +4,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { ProtectedRoute } from "@/lib/components/protected-route";
 
@@ -48,12 +49,18 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-lg bg-white p-6 shadow">
+            <Link
+              href="/cvs"
+              className="rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-lg"
+            >
               <h3 className="text-lg font-semibold text-gray-900">My CVs</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Manage your CV templates
+                Upload and manage your CV templates
               </p>
-            </div>
+              <div className="mt-4 text-sm font-medium text-blue-600">
+                Manage CVs →
+              </div>
+            </Link>
 
             <div className="rounded-lg bg-white p-6 shadow">
               <h3 className="text-lg font-semibold text-gray-900">
