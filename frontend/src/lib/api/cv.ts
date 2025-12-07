@@ -82,4 +82,36 @@ export const cvApi = {
     const response = await apiClient.patch<CV>(`/cv/${cvId}/primary`);
     return response.data;
   },
+
+  /**
+   * Download a CV file
+   */
+  async download(cvId: string, filename: string): Promise<void> {
+    const response = await apiClient.get(`/cv/${cvId}/download`, {
+      responseType: "blob",
+    });
+
+    // Create a download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Get a blob URL for PDF preview
+   */
+  async getPreviewUrl(cvId: string): Promise<string> {
+    const response = await apiClient.get(`/cv/${cvId}/download`, {
+      responseType: "blob",
+    });
+
+    return window.URL.createObjectURL(
+      new Blob([response.data], { type: "application/pdf" })
+    );
+  },
 };

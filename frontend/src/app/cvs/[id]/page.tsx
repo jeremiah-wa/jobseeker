@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CV, cvApi } from "@/lib/api/cv";
-import { env } from "@/lib/env";
 
 export default function CVDetailPage() {
   const params = useParams();
@@ -16,6 +15,23 @@ export default function CVDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSettingPrimary, setIsSettingPrimary] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const loadPreview = useCallback(async () => {
+    if (!cvId) return;
+
+    try {
+      setIsLoadingPreview(true);
+      const url = await cvApi.getPreviewUrl(cvId);
+      setPdfUrl(url);
+    } catch (err) {
+      console.error("Failed to load preview:", err);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  }, [cvId]);
 
   useEffect(() => {
     const fetchCV = async () => {
@@ -23,6 +39,8 @@ export default function CVDetailPage() {
         setIsLoading(true);
         const data = await cvApi.get(cvId);
         setCv(data);
+        // Load preview after CV data is fetched
+        loadPreview();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load CV");
       } finally {
@@ -33,7 +51,16 @@ export default function CVDetailPage() {
     if (cvId) {
       fetchCV();
     }
-  }, [cvId]);
+  }, [cvId, loadPreview]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) {
+        window.URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
 
   const handleDelete = async () => {
     if (!cv || !confirm("Are you sure you want to delete this CV?")) return;
@@ -72,10 +99,17 @@ export default function CVDetailPage() {
     });
   };
 
-  const getDownloadUrl = () => {
-    if (!cv) return "#";
-    // Construct download URL from API
-    return `${env.NEXT_PUBLIC_API_URL}/cv/${cv.id}/download`;
+  const handleDownload = async () => {
+    if (!cv) return;
+
+    try {
+      setIsDownloading(true);
+      await cvApi.download(cv.id, cv.filename);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to download CV");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -233,6 +267,33 @@ export default function CVDetailPage() {
               </div>
             </dl>
 
+            {/* PDF Preview */}
+            <div className="mt-6">
+              <h3 className="mb-2 text-sm font-medium text-gray-500">
+                Document Preview
+              </h3>
+              {isLoadingPreview ? (
+                <div className="flex h-96 items-center justify-center rounded-md border border-gray-200 bg-gray-50">
+                  <div className="text-center">
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Loading preview...
+                    </p>
+                  </div>
+                </div>
+              ) : pdfUrl ? (
+                <iframe
+                  src={`${pdfUrl}#toolbar=0&navpanes=0`}
+                  className="h-[600px] w-full rounded-md border border-gray-200"
+                  title="CV Preview"
+                />
+              ) : (
+                <div className="flex h-96 items-center justify-center rounded-md border border-gray-200 bg-gray-50">
+                  <p className="text-sm text-gray-500">Preview not available</p>
+                </div>
+              )}
+            </div>
+
             {/* Raw Text Preview */}
             {cv.raw_text && (
               <div className="mt-6">
@@ -252,27 +313,35 @@ export default function CVDetailPage() {
           {/* Actions Section */}
           <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
             <div className="flex flex-wrap gap-3">
-              <a
-                href={getDownloadUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
               >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                Download PDF
-              </a>
+                {isDownloading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="mr-2 h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    Download PDF
+                  </>
+                )}
+              </button>
 
               {!cv.is_primary && (
                 <button
