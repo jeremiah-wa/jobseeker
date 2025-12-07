@@ -48,3 +48,9 @@ repos:
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
         pass_filenames: false
+      - id: tsc
+        name: TypeScript
+        entry: pnpm --prefix frontend tsc --noEmit
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
