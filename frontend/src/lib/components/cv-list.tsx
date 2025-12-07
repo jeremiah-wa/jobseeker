@@ -5,6 +5,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { cvApi, type CVListItem } from "@/lib/api/cv";
 
 interface CVListProps {
@@ -107,7 +108,12 @@ export function CVList({ refreshTrigger }: CVListProps) {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <p className="font-medium text-gray-900">{cv.filename}</p>
+                <Link
+                  href={`/cvs/${cv.id}`}
+                  className="font-medium text-gray-900 hover:text-blue-600 hover:underline"
+                >
+                  {cv.filename}
+                </Link>
                 {cv.is_primary && (
                   <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
                     Primary

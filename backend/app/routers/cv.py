@@ -4,6 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -175,6 +176,59 @@ async def get_cv(
         )
 
     return CVResponse.model_validate(cv)
+
+
+@router.get("/{cv_id}/download")
+async def download_cv(
+    cv_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    storage: Annotated[StorageBackend, Depends(get_storage_backend)],
+) -> Response:
+    """
+    Download a CV file.
+
+    Args:
+        cv_id: CV UUID
+        current_user: Current authenticated user
+        db: Database session
+        storage: Storage backend
+
+    Returns:
+        PDF file response
+
+    Raises:
+        HTTPException: If CV not found or user doesn't have access
+    """
+    cv = await db.get(CV, cv_id)
+
+    if cv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV not found",
+        )
+
+    if cv.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this CV",
+        )
+
+    try:
+        content = await storage.get(cv.file_path)
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV file not found in storage",
+        ) from e
+
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{cv.filename}"',
+        },
+    )
 
 
 @router.delete("/{cv_id}", status_code=status.HTTP_204_NO_CONTENT)
