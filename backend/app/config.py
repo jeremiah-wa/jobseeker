@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # File uploads
-    max_upload_size_mb: int = 10
+    max_upload_size_mb: int = 2
     upload_dir: str = "/data/uploads"
 
     @cached_property
