@@ -101,7 +101,8 @@ class LocalStorageBackend(StorageBackend):
             raise FileNotFoundError(f"File not found: {path}")
 
         async with aiofiles.open(full_path, "rb") as f:
-            return await f.read()
+            content = await f.read()
+            return bytes(content)
 
     async def delete(self, path: str) -> None:
         """Delete file from local filesystem."""
@@ -115,7 +116,8 @@ class LocalStorageBackend(StorageBackend):
     async def exists(self, path: str) -> bool:
         """Check if file exists in local filesystem."""
         full_path = self.base_path / path
-        return await aiofiles.os.path.exists(full_path)
+        result = await aiofiles.os.path.exists(full_path)
+        return bool(result)
 
 
 def generate_cv_path(user_id: uuid.UUID, original_filename: str) -> str:
