@@ -24,6 +24,9 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    LOG_LEVEL: z
+      .enum(["trace", "debug", "info", "warn", "error", "fatal"])
+      .default("info"),
   },
 
   /**
@@ -34,6 +37,7 @@ export const env = createEnv({
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_MAX_UPLOAD_SIZE_MB: process.env.NEXT_PUBLIC_MAX_UPLOAD_SIZE_MB,
     NODE_ENV: process.env.NODE_ENV,
+    LOG_LEVEL: process.env.LOG_LEVEL,
   },
 
   /**
