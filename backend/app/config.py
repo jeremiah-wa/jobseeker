@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # Application
     environment: str = "development"
     debug: bool = True
+    log_level: str = "INFO"
     # Store as string, convert to list via property
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 

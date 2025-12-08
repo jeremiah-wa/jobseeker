@@ -1,6 +1,5 @@
 """CV parsing service using LangChain with configurable LLM providers."""
 
-import logging
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -8,9 +7,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import ValidationError
 
 from app.config import settings
+from app.core.logging import get_logger
 from app.schemas.cv import ParsedCV
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CVParsingError(Exception):
@@ -40,7 +40,10 @@ def get_llm() -> BaseChatModel:
         from langchain_ollama import ChatOllama
 
         logger.info(
-            f"Using Ollama provider at {settings.ollama_base_url} with model: {settings.llm_model}"
+            "llm_provider_init",
+            provider="ollama",
+            base_url=settings.ollama_base_url,
+            model=settings.llm_model,
         )
         return ChatOllama(
             model=settings.llm_model,
@@ -55,7 +58,7 @@ def get_llm() -> BaseChatModel:
 
         from langchain_groq import ChatGroq
 
-        logger.info(f"Using Groq provider with model: {settings.llm_model}")
+        logger.info("llm_provider_init", provider="groq", model=settings.llm_model)
         return ChatGroq(  # type: ignore[call-arg]
             model=settings.llm_model,
             api_key=settings.groq_api_key,
@@ -69,7 +72,7 @@ def get_llm() -> BaseChatModel:
 
         from langchain_anthropic import ChatAnthropic
 
-        logger.info(f"Using Anthropic provider with model: {settings.llm_model}")
+        logger.info("llm_provider_init", provider="anthropic", model=settings.llm_model)
         return ChatAnthropic(  # type: ignore[call-arg]
             model=settings.llm_model,
             api_key=settings.anthropic_api_key,
@@ -146,12 +149,14 @@ class CVParserService:
             raise CVParsingError("CV text is empty")
 
         try:
-            logger.info("Starting CV parsing with LLM...")
+            logger.info("cv_parsing_started")
 
             # Truncate very long CVs to avoid token limits
             max_chars = 50000  # Roughly 12k tokens
             if len(cv_text) > max_chars:
-                logger.warning(f"CV text truncated from {len(cv_text)} to {max_chars} chars")
+                logger.warning(
+                    "cv_text_truncated", original_len=len(cv_text), truncated_len=max_chars
+                )
                 cv_text = cv_text[:max_chars]
 
             # Run the LLM chain
@@ -162,17 +167,17 @@ class CVParserService:
 
             # The chain's with_structured_output returns ParsedCV
             if isinstance(result, ParsedCV):
-                logger.info("CV parsing completed successfully")
+                logger.info("cv_parsing_completed")
                 return result
             else:
                 # Handle case where result is a dict (shouldn't happen with structured output)
                 return ParsedCV.model_validate(result)
 
         except ValidationError as e:
-            logger.error(f"CV parsing validation error: {e}")
+            logger.error("cv_parsing_validation_error", error=str(e))
             raise CVParsingError(f"Failed to validate parsed data: {e}") from e
         except Exception as e:
-            logger.error(f"CV parsing failed: {e}")
+            logger.error("cv_parsing_failed", error=str(e))
             raise CVParsingError(f"CV parsing failed: {e}") from e
 
     def parse_cv_sync(self, cv_text: str) -> ParsedCV:

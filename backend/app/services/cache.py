@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,10 +9,11 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.db.models.job_cache import JobCache
 from app.schemas.job import JobSearchParams, SearchResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Cache TTL settings (in minutes)
 SEARCH_CACHE_TTL_MINUTES = 15
@@ -98,10 +98,10 @@ class JobCacheService:
         cache_entry = result.scalar_one_or_none()
 
         if cache_entry:
-            logger.debug(f"Cache hit for search: {source} - {cache_key[:8]}")
+            logger.debug("cache_hit", cache_type="search", source=source, key=cache_key[:8])
             return SearchResult.model_validate(cache_entry.data)
 
-        logger.debug(f"Cache miss for search: {source} - {cache_key[:8]}")
+        logger.debug("cache_miss", cache_type="search", source=source, key=cache_key[:8])
         return None
 
     async def set_search_result(
@@ -143,7 +143,7 @@ class JobCacheService:
 
         await self.db.execute(stmt)
         await self.db.commit()
-        logger.debug(f"Cached search result: {source} - {cache_key[:8]}")
+        logger.debug("cache_set", cache_type="search", source=source, key=cache_key[:8])
 
     async def get_job_details(
         self,
@@ -172,10 +172,10 @@ class JobCacheService:
         cache_entry = result.scalar_one_or_none()
 
         if cache_entry:
-            logger.debug(f"Cache hit for job: {source} - {job_id}")
+            logger.debug("cache_hit", cache_type="job", source=source, job_id=job_id)
             return cache_entry.data
 
-        logger.debug(f"Cache miss for job: {source} - {job_id}")
+        logger.debug("cache_miss", cache_type="job", source=source, job_id=job_id)
         return None
 
     async def set_job_details(
@@ -214,7 +214,7 @@ class JobCacheService:
 
         await self.db.execute(stmt)
         await self.db.commit()
-        logger.debug(f"Cached job details: {source} - {job_id}")
+        logger.debug("cache_set", cache_type="job", source=source, job_id=job_id)
 
     async def invalidate_source(self, source: str) -> int:
         """Invalidate all cache entries for a specific source.
@@ -229,7 +229,7 @@ class JobCacheService:
         result = await self.db.execute(stmt)
         await self.db.commit()
         count: int = result.rowcount or 0  # type: ignore[attr-defined]
-        logger.info(f"Invalidated {count} cache entries for source: {source}")
+        logger.info("cache_invalidated", source=source, count=count)
         return count
 
     async def cleanup_expired(self) -> int:
@@ -243,7 +243,7 @@ class JobCacheService:
         await self.db.commit()
         count: int = result.rowcount or 0  # type: ignore[attr-defined]
         if count > 0:
-            logger.info(f"Cleaned up {count} expired cache entries")
+            logger.info("cache_cleanup", expired_count=count)
         return count
 
     async def get_stats(self) -> dict[str, Any]:
