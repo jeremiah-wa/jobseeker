@@ -1,6 +1,7 @@
 """Database engine and session management."""
 
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -58,3 +59,25 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close the database engine."""
     await engine.dispose()
+
+
+@asynccontextmanager
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Context manager for database sessions in background tasks.
+
+    Usage:
+        async with get_db_session() as db:
+            cv = await db.get(CV, cv_id)
+            ...
+
+    Yields:
+        AsyncSession: Database session that will be automatically closed.
+    """
+    async with async_session_maker() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
