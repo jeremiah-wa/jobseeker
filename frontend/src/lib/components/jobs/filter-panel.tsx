@@ -117,16 +117,16 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
           Job Type
         </Label>
         <Select
-          value={filters.jobType}
+          value={filters.jobType || "any"}
           onValueChange={(value) =>
-            updateFilter("jobType", value as JobType | "")
+            updateFilter("jobType", value === "any" ? "" : (value as JobType))
           }
         >
           <SelectTrigger id="jobType">
             <SelectValue placeholder="Any type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Any type</SelectItem>
+            <SelectItem value="any">Any type</SelectItem>
             {JOB_TYPES.map((type) => (
               <SelectItem key={type.value} value={type.value}>
                 {type.label}
