@@ -7,14 +7,17 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 
+from app.config import settings
 from app.db.models.user import User, UserTier
 from app.dependencies.auth import get_current_user
 
-# Rate limits per minute by user tier
-RATE_LIMITS: dict[UserTier, int] = {
-    UserTier.FREE: 30,
-    UserTier.PREMIUM: 100,
-}
+
+def get_rate_limits() -> dict[UserTier, int]:
+    """Get rate limits from settings."""
+    return {
+        UserTier.FREE: settings.rate_limit_free,
+        UserTier.PREMIUM: settings.rate_limit_premium,
+    }
 
 
 @dataclass
@@ -31,14 +34,14 @@ class RateLimiter:
     Uses a sliding window algorithm.
     """
 
-    def __init__(self, window_seconds: int = 60) -> None:
+    def __init__(self, window_seconds: int | None = None) -> None:
         """Initialize the rate limiter.
 
         Args:
-            window_seconds: Time window for rate limiting.
+            window_seconds: Time window for rate limiting. Defaults to settings value.
         """
         self._entries: dict[str, RateLimitEntry] = defaultdict(RateLimitEntry)
-        self._window_seconds = window_seconds
+        self._window_seconds = window_seconds or settings.rate_limit_window_seconds
 
     def check_rate_limit(self, user_id: str, tier: UserTier) -> tuple[bool, int, int]:
         """Check if a request is within rate limits.
@@ -52,7 +55,8 @@ class RateLimiter:
         """
         now = time.time()
         entry = self._entries[user_id]
-        limit = RATE_LIMITS.get(tier, RATE_LIMITS[UserTier.FREE])
+        rate_limits = get_rate_limits()
+        limit = rate_limits.get(tier, rate_limits[UserTier.FREE])
 
         # Remove expired requests from the window
         cutoff = now - self._window_seconds
@@ -81,7 +85,8 @@ class RateLimiter:
             Dict of rate limit headers.
         """
         entry = self._entries[user_id]
-        limit = RATE_LIMITS.get(tier, RATE_LIMITS[UserTier.FREE])
+        rate_limits = get_rate_limits()
+        limit = rate_limits.get(tier, rate_limits[UserTier.FREE])
 
         # Clean expired entries
         now = time.time()

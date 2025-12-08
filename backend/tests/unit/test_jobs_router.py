@@ -11,9 +11,9 @@ from app.connectors.base import JobConnector
 from app.connectors.manager import ConnectorManager
 from app.db.models.user import User, UserTier
 from app.dependencies.rate_limit import (
-    RATE_LIMITS,
     RateLimiter,
     check_job_search_rate_limit,
+    get_rate_limits,
 )
 from app.schemas.job import (
     Job,
@@ -128,14 +128,14 @@ class TestRateLimiter:
         is_allowed, remaining, retry_after = limiter.check_rate_limit(user_id, UserTier.FREE)
 
         assert is_allowed is True
-        assert remaining == RATE_LIMITS[UserTier.FREE] - 1
+        assert remaining == get_rate_limits()[UserTier.FREE] - 1
         assert retry_after == 0
 
     def test_rate_limit_exceeded(self):
         """Test rate limit is enforced."""
         limiter = RateLimiter(window_seconds=60)
         user_id = str(uuid4())
-        limit = RATE_LIMITS[UserTier.FREE]
+        limit = get_rate_limits()[UserTier.FREE]
 
         # Make requests up to the limit
         for _ in range(limit):
@@ -155,14 +155,14 @@ class TestRateLimiter:
         premium_user = str(uuid4())
 
         # Exhaust free tier limit
-        for _ in range(RATE_LIMITS[UserTier.FREE]):
+        for _ in range(get_rate_limits()[UserTier.FREE]):
             limiter.check_rate_limit(free_user, UserTier.FREE)
 
         # Free user should be blocked
         is_allowed_free, _, _ = limiter.check_rate_limit(free_user, UserTier.FREE)
 
         # Premium user with same number of requests should still be allowed
-        for _ in range(RATE_LIMITS[UserTier.FREE]):
+        for _ in range(get_rate_limits()[UserTier.FREE]):
             limiter.check_rate_limit(premium_user, UserTier.PREMIUM)
 
         is_allowed_premium, remaining_premium, _ = limiter.check_rate_limit(
@@ -177,7 +177,7 @@ class TestRateLimiter:
         """Test requests outside window are not counted."""
         limiter = RateLimiter(window_seconds=1)  # 1 second window
         user_id = str(uuid4())
-        limit = RATE_LIMITS[UserTier.FREE]
+        limit = get_rate_limits()[UserTier.FREE]
 
         # Exhaust limit
         for _ in range(limit):
@@ -203,8 +203,8 @@ class TestRateLimiter:
         assert "X-RateLimit-Limit" in headers
         assert "X-RateLimit-Remaining" in headers
         assert "X-RateLimit-Reset" in headers
-        assert headers["X-RateLimit-Limit"] == str(RATE_LIMITS[UserTier.FREE])
-        assert int(headers["X-RateLimit-Remaining"]) == RATE_LIMITS[UserTier.FREE] - 1
+        assert headers["X-RateLimit-Limit"] == str(get_rate_limits()[UserTier.FREE])
+        assert int(headers["X-RateLimit-Remaining"]) == get_rate_limits()[UserTier.FREE] - 1
 
 
 @pytest.mark.unit
@@ -228,7 +228,7 @@ class TestCheckJobSearchRateLimit:
 
         limiter = RateLimiter(window_seconds=60)
         user = create_mock_user()
-        limit = RATE_LIMITS[UserTier.FREE]
+        limit = get_rate_limits()[UserTier.FREE]
 
         # Exhaust limit
         for _ in range(limit):
