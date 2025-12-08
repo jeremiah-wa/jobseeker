@@ -148,11 +148,46 @@ Hooks will run automatically on commit:
 
 ---
 
+## GitHub Labels
+
+Use labels to categorize issues and PRs. Copy labels from the related issue to its PR.
+
+### Phase Labels
+
+| Label | Description |
+|-------|-------------|
+| `phase-1` | CV upload & parsing features |
+| `phase-2` | Job search & connectors |
+| `phase-3` | CV tailoring with LLM |
+| `phase-4` | Premium features & polish |
+
+### Type Labels
+
+| Label | Description |
+|-------|-------------|
+| `epic` | Parent issue grouping related work |
+| `feature` | New functionality |
+| `bug` | Something isn't working |
+| `architecture` | Design or structural changes |
+| `performance` | Speed or efficiency improvements |
+
+### Area Labels
+
+| Label | Description |
+|-------|-------------|
+| `api` | Backend API changes |
+| `frontend` | React/Next.js changes |
+| `ui` | Visual/UX changes |
+| `integration` | External service integration |
+
+---
+
 ## Pull Request Checklist
 
 - [ ] Code follows style guidelines
 - [ ] Tests added for new functionality
 - [ ] All tests pass locally
 - [ ] Documentation updated if needed
-- [ ] PR linked to issue
+- [ ] PR linked to issue with `Closes #X`
+- [ ] Labels copied from related issue
 - [ ] Commit messages follow conventions
