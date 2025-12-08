@@ -7,6 +7,22 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cvApi, type CVListItem } from "@/lib/api/cv";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/lib/components/ui/alert-dialog";
+import { Button } from "@/lib/components/ui/button";
+import { Badge } from "@/lib/components/ui/badge";
+import { Skeleton } from "@/lib/components/ui/skeleton";
+import { useToast } from "@/lib/hooks/use-toast";
+import { FileText, Star } from "lucide-react";
 
 interface CVListProps {
   refreshTrigger?: number;
@@ -16,6 +32,7 @@ export function CVList({ refreshTrigger }: CVListProps) {
   const [cvs, setCvs] = useState<CVListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const loadCVs = async () => {
     setIsLoading(true);
@@ -36,47 +53,76 @@ export function CVList({ refreshTrigger }: CVListProps) {
   }, [refreshTrigger]);
 
   const handleDelete = async (cvId: string, filename: string) => {
-    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
-      return;
-    }
-
     try {
       await cvApi.delete(cvId);
+      toast({
+        title: "CV deleted",
+        description: `"${filename}" has been removed.`,
+      });
       await loadCVs();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete CV");
+      toast({
+        variant: "destructive",
+        title: "Failed to delete CV",
+        description: err instanceof Error ? err.message : "An error occurred",
+      });
     }
   };
 
-  const handleSetPrimary = async (cvId: string) => {
+  const handleSetPrimary = async (cvId: string, filename: string) => {
     try {
       await cvApi.setPrimary(cvId);
+      toast({
+        title: "Primary CV updated",
+        description: `"${filename}" is now your primary CV.`,
+      });
       await loadCVs();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to set primary CV");
+      toast({
+        variant: "destructive",
+        title: "Failed to set primary CV",
+        description: err instanceof Error ? err.message : "An error occurred",
+      });
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
+          >
+            <div className="flex items-center space-x-4">
+              <Skeleton className="h-10 w-10 rounded" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 p-4">
-        <p className="text-sm text-red-800">{error}</p>
+      <div className="rounded-md bg-destructive/10 p-4">
+        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
 
   if (cvs.length === 0) {
     return (
-      <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-        <p className="text-sm text-gray-600">
+      <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+        <p className="text-sm text-muted-foreground">
           No CVs uploaded yet. Upload your first CV above.
         </p>
       </div>
@@ -88,59 +134,80 @@ export function CVList({ refreshTrigger }: CVListProps) {
       {cvs.map((cv) => (
         <div
           key={cv.id}
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+          className="flex items-center justify-between rounded-lg border border-border bg-card p-4 shadow-sm"
         >
-          <div className="flex items-center space-x-4">
+          <Link
+            href={`/cvs/${cv.id}`}
+            className="flex flex-1 items-center space-x-4 hover:opacity-80"
+          >
             <div className="flex-shrink-0">
-              <svg
-                className="h-10 w-10 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
+              <FileText className="h-10 w-10 text-muted-foreground" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <Link
-                  href={`/cvs/${cv.id}`}
-                  className="font-medium text-gray-900 hover:text-blue-600 hover:underline"
-                >
+                <span className="font-medium text-foreground">
                   {cv.filename}
-                </Link>
+                </span>
                 {cv.is_primary && (
-                  <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                  <Badge
+                    variant="secondary"
+                    className="bg-primary/10 text-primary"
+                  >
                     Primary
-                  </span>
+                  </Badge>
                 )}
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Uploaded {new Date(cv.created_at).toLocaleDateString()}
               </p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center space-x-2">
             {!cv.is_primary && (
-              <button
-                onClick={() => handleSetPrimary(cv.id)}
-                className="rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetPrimary(cv.id, cv.filename);
+                }}
+                className="border border-primary/20 bg-primary/5 text-primary hover:border-primary hover:bg-primary hover:text-primary-foreground"
               >
+                <Star className="mr-1.5 h-4 w-4" />
                 Set Primary
-              </button>
+              </Button>
             )}
-            <button
-              onClick={() => handleDelete(cv.id, cv.filename)}
-              className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-            >
-              Delete
-            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete CV</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete &quot;{cv.filename}&quot;?
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDelete(cv.id, cv.filename)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       ))}

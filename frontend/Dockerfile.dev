@@ -6,14 +6,15 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files (for initial layer caching)
 COPY package.json pnpm-lock.yaml* ./
 
-# Install dependencies
+# Install dependencies at build time (cached in image)
 RUN pnpm install
 
 # Expose port
 EXPOSE 3000
 
-# Run development server
-CMD ["pnpm", "dev"]
+# Install deps again at startup (syncs volume with any package.json changes)
+# Then start dev server
+CMD ["sh", "-c", "pnpm install && pnpm dev"]

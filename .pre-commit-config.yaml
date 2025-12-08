@@ -38,19 +38,19 @@ repos:
     hooks:
       - id: eslint
         name: ESLint
-        entry: pnpm --prefix frontend lint
+        entry: pnpm -C frontend run lint
         language: system
         files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
       - id: prettier
         name: Prettier
-        entry: pnpm --prefix frontend format:check
+        entry: pnpm -C frontend run format:check
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
         pass_filenames: false
       - id: tsc
         name: TypeScript
-        entry: pnpm --prefix frontend tsc --noEmit
+        entry: pnpm -C frontend run typecheck
         language: system
         files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
