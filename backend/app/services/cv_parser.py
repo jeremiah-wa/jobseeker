@@ -40,8 +40,7 @@ def get_llm() -> BaseChatModel:
         from langchain_ollama import ChatOllama
 
         logger.info(
-            f"Using Ollama provider at {settings.ollama_base_url} "
-            f"with model: {settings.llm_model}"
+            f"Using Ollama provider at {settings.ollama_base_url} with model: {settings.llm_model}"
         )
         return ChatOllama(
             model=settings.llm_model,
