@@ -4,9 +4,14 @@ from app.schemas.auth import Token, TokenRefresh, UserLogin, UserRegister, UserR
 from app.schemas.cv import (
     CVCreate,
     CVListResponse,
+    CVParseResponse,
     CVResponse,
     CVUpdate,
     CVUploadResponse,
+    Education,
+    Experience,
+    ParsedCV,
+    ParsingStatusSchema,
 )
 
 __all__ = [
@@ -17,7 +22,12 @@ __all__ = [
     "UserResponse",
     "CVCreate",
     "CVListResponse",
+    "CVParseResponse",
     "CVResponse",
     "CVUpdate",
     "CVUploadResponse",
+    "Education",
+    "Experience",
+    "ParsedCV",
+    "ParsingStatusSchema",
 ]

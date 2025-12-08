@@ -17,11 +17,21 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
-    # LLM
-    anthropic_api_key: str = ""
-    llm_model: str = "claude-3-5-sonnet-20241022"
+    # LLM Configuration
+    # Provider options: "ollama" (local), "groq" (free API), "anthropic" (premium)
+    llm_provider: str = "ollama"
+    llm_model: str = "llama3.2"  # Model name (provider-specific)
     llm_max_tokens: int = 4096
     llm_temperature: float = 0.3
+
+    # Ollama (local dev - no API costs)
+    ollama_base_url: str = "http://ollama:11434"
+
+    # Groq (free/cheap API - recommended for cloud dev)
+    groq_api_key: str = ""
+
+    # Anthropic (premium - production quality)
+    anthropic_api_key: str = ""
 
     # Job Connectors
     adzuna_app_id: str = ""

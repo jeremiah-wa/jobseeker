@@ -1,21 +1,34 @@
 """CV upload and management endpoints."""
 
+import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import attributes
 
 from app.config import settings
-from app.db.database import get_db
-from app.db.models.cv import CV
+from app.db.database import get_db, get_db_session
+from app.db.models.cv import CV, ParsingStatus
 from app.db.models.user import User
 from app.dependencies.auth import get_current_user
 from app.dependencies.storage import get_storage_backend
-from app.schemas.cv import CVListResponse, CVResponse, CVUploadResponse
+from app.schemas.cv import (
+    CVListResponse,
+    CVParsedDataUpdate,
+    CVParseResponse,
+    CVResponse,
+    CVUploadResponse,
+    ParsingStatusSchema,
+)
+from app.services.cv_parser import CVParserService, CVParsingError
+from app.services.pdf_extractor import PDFExtractionError, PDFExtractorService
 from app.storage import StorageBackend, generate_cv_path
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -329,5 +342,213 @@ async def set_primary_cv(
     cv.is_primary = True
     await db.commit()
     await db.refresh(cv)
+
+    return CVResponse.model_validate(cv)
+
+
+async def _parse_cv_background(
+    cv_id: uuid.UUID,
+    pdf_content: bytes,
+) -> None:
+    """
+    Background task to parse CV content.
+
+    Args:
+        cv_id: CV UUID to update.
+        pdf_content: Raw PDF file bytes.
+    """
+    async with get_db_session() as db:
+        cv = await db.get(CV, cv_id)
+        if cv is None:
+            logger.error(f"CV {cv_id} not found for parsing")
+            return
+
+        try:
+            # Update status to processing
+            cv.parsing_status = ParsingStatus.PROCESSING
+            cv.parsing_error = None
+            await db.commit()
+
+            # Extract text from PDF
+            logger.info(f"Extracting text from CV {cv_id}")
+            extractor = PDFExtractorService()
+            raw_text = extractor.extract_text_clean(pdf_content)
+            cv.raw_text = raw_text
+            await db.commit()
+
+            # Parse with LLM
+            logger.info(f"Parsing CV {cv_id} with LLM")
+            parser = CVParserService()
+            parsed_data = await parser.parse_cv(raw_text)
+
+            # Update CV with parsed data
+            cv.parsed_data = parser.parsed_cv_to_dict(parsed_data)
+            cv.parsing_status = ParsingStatus.COMPLETED
+            cv.parsing_error = None
+            await db.commit()
+
+            logger.info(f"CV {cv_id} parsed successfully")
+
+        except PDFExtractionError as e:
+            logger.error(f"PDF extraction failed for CV {cv_id}: {e}")
+            cv.parsing_status = ParsingStatus.FAILED
+            cv.parsing_error = f"PDF extraction failed: {e}"
+            await db.commit()
+
+        except CVParsingError as e:
+            logger.error(f"CV parsing failed for CV {cv_id}: {e}")
+            cv.parsing_status = ParsingStatus.FAILED
+            cv.parsing_error = f"CV parsing failed: {e}"
+            await db.commit()
+
+        except Exception as e:
+            logger.exception(f"Unexpected error parsing CV {cv_id}: {e}")
+            cv.parsing_status = ParsingStatus.FAILED
+            cv.parsing_error = f"Unexpected error: {e}"
+            await db.commit()
+
+
+@router.post("/{cv_id}/parse", response_model=CVParseResponse, status_code=status.HTTP_202_ACCEPTED)
+async def parse_cv(
+    cv_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    storage: Annotated[StorageBackend, Depends(get_storage_backend)],
+) -> CVParseResponse:
+    """
+    Trigger CV parsing (PDF text extraction + LLM structuring).
+
+    This initiates background processing to extract text from the PDF
+    and structure it using an LLM.
+
+    Args:
+        cv_id: CV UUID to parse.
+        background_tasks: FastAPI background tasks.
+        current_user: Current authenticated user.
+        db: Database session.
+        storage: Storage backend.
+
+    Returns:
+        Parse response with current status.
+
+    Raises:
+        HTTPException: If CV not found, access denied, or already processing.
+    """
+    cv = await db.get(CV, cv_id)
+
+    if cv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV not found",
+        )
+
+    if cv.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this CV",
+        )
+
+    # Check if already processing
+    if cv.parsing_status == ParsingStatus.PROCESSING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CV is already being parsed",
+        )
+
+    # Get PDF content from storage
+    try:
+        pdf_content = await storage.get(cv.file_path)
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV file not found in storage",
+        ) from e
+
+    # Queue background task
+    background_tasks.add_task(_parse_cv_background, cv_id, pdf_content)
+
+    # Update status to pending (will be set to processing by background task)
+    cv.parsing_status = ParsingStatus.PENDING
+    cv.parsing_error = None
+    await db.commit()
+    await db.refresh(cv)
+
+    return CVParseResponse(
+        id=cv.id,
+        parsing_status=ParsingStatusSchema(cv.parsing_status.value),
+        parsing_error=cv.parsing_error,
+        message="Parsing initiated. Check status with GET /cv/{cv_id}",
+    )
+
+
+@router.patch("/{cv_id}/parsed-data", response_model=CVResponse)
+async def update_parsed_data(
+    cv_id: uuid.UUID,
+    update_data: CVParsedDataUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> CVResponse:
+    """
+    Manually update parsed CV data.
+
+    Allows users to correct or add parsed data manually, especially useful
+    when automatic parsing fails or produces incomplete results.
+
+    Args:
+        cv_id: CV UUID to update.
+        update_data: Partial parsed data to update.
+        current_user: Current authenticated user.
+        db: Database session.
+
+    Returns:
+        Updated CV with new parsed data.
+
+    Raises:
+        HTTPException: If CV not found or access denied.
+    """
+    # Get CV and verify ownership
+    result = await db.execute(select(CV).where(CV.id == cv_id))
+    cv = result.scalar_one_or_none()
+
+    if not cv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV not found",
+        )
+
+    if cv.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
+    # Get existing parsed data or start fresh
+    existing_data = cv.parsed_data or {}
+
+    # Update only provided fields
+    update_dict = update_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        if value is not None:
+            # For lists, convert Pydantic models to dicts
+            if isinstance(value, list) and value and hasattr(value[0], "model_dump"):
+                existing_data[key] = [item.model_dump() for item in value]
+            else:
+                existing_data[key] = value
+
+    cv.parsed_data = existing_data
+    # Flag the JSONB column as modified so SQLAlchemy detects the change
+    attributes.flag_modified(cv, "parsed_data")
+
+    # If there was a parsing error and user is manually fixing, clear the error
+    # and set status to completed
+    if cv.parsing_status == ParsingStatus.FAILED:
+        cv.parsing_status = ParsingStatus.COMPLETED
+        cv.parsing_error = None
+
+    await db.commit()
+    await db.refresh(cv)
+
+    logger.info(f"CV {cv_id} parsed data manually updated by user {current_user.id}")
 
     return CVResponse.model_validate(cv)
