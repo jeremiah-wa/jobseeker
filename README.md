@@ -104,6 +104,8 @@ See [Branching Strategy](docs/BRANCHING_STRATEGY.md) for details.
 
 ## Documentation
 
+- [Backend README](backend/README.md) - API endpoints, database models, and backend development
+- [Frontend README](frontend/README.md) - UI components, theming, and frontend development
 - [Roadmap](docs/ROADMAP.md) - Development phases and milestones
 - [Architecture](docs/ARCHITECTURE.md) - Technical decisions (ADRs)
 - [Tech Stack](docs/TECH_STACK.md) - Technology choices
