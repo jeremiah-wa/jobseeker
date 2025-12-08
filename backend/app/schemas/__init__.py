@@ -13,13 +13,23 @@ from app.schemas.cv import (
     ParsedCV,
     ParsingStatusSchema,
 )
+from app.schemas.job import (
+    AggregatedSearchResult,
+    ConnectorInfo,
+    Job,
+    JobSearchParams,
+    JobType,
+    SearchResult,
+)
 
 __all__ = [
+    # Auth
     "Token",
     "TokenRefresh",
     "UserLogin",
     "UserRegister",
     "UserResponse",
+    # CV
     "CVCreate",
     "CVListResponse",
     "CVParseResponse",
@@ -30,4 +40,11 @@ __all__ = [
     "Experience",
     "ParsedCV",
     "ParsingStatusSchema",
+    # Job
+    "AggregatedSearchResult",
+    "ConnectorInfo",
+    "Job",
+    "JobSearchParams",
+    "JobType",
+    "SearchResult",
 ]
