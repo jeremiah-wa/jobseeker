@@ -1,12 +1,13 @@
 """PDF text extraction service using PyMuPDF."""
 
-import logging
 from io import BytesIO
 
 import fitz  # PyMuPDF
 import pymupdf
 
-logger = logging.getLogger(__name__)
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class PDFExtractionError(Exception):
@@ -52,10 +53,10 @@ class PDFExtractorService:
             return "\n\n".join(text_parts)
 
         except (pymupdf.FileDataError, pymupdf.EmptyFileError) as e:
-            logger.error(f"Invalid PDF file: {e}")
+            logger.error("pdf_invalid", error=str(e))
             raise PDFExtractionError(f"Invalid PDF file: {e}") from e
         except Exception as e:
-            logger.error(f"PDF extraction failed: {e}")
+            logger.error("pdf_extraction_failed", error=str(e))
             raise PDFExtractionError(f"PDF extraction failed: {e}") from e
 
     @staticmethod

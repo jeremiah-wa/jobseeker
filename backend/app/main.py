@@ -7,16 +7,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.logging import get_logger, setup_logging
+from app.core.middleware import RequestIDMiddleware
 from app.db.database import close_db
 from app.routers import auth, cv, jobs
+
+# Initialize structured logging before anything else
+setup_logging()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup and shutdown events."""
     # Startup
+    logger.info("application_startup", environment=settings.environment)
     yield
     # Shutdown
+    logger.info("application_shutdown")
     await close_db()
 
 
@@ -28,6 +36,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# Request ID middleware (must be added before CORS for proper ordering)
+app.add_middleware(RequestIDMiddleware)
 
 # CORS middleware
 app.add_middleware(

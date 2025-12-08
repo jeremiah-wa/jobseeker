@@ -1,10 +1,10 @@
 """Connector manager for registering and aggregating job connectors."""
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, ClassVar
 
 from app.connectors.base import ConnectorError, JobConnector
+from app.core.logging import get_logger
 from app.schemas.job import (
     AggregatedSearchResult,
     ConnectorInfo,
@@ -16,7 +16,7 @@ from app.schemas.job import (
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConnectorManager:
@@ -52,7 +52,9 @@ class ConnectorManager:
             raise ValueError(f"Connector '{connector.name}' is already registered")
 
         cls._connectors[connector.name] = connector
-        logger.info(f"Registered connector: {connector.display_name} ({connector.name})")
+        logger.info(
+            "connector_registered", name=connector.name, display_name=connector.display_name
+        )
 
     @classmethod
     def unregister(cls, name: str) -> None:
@@ -63,7 +65,7 @@ class ConnectorManager:
         """
         if name in cls._connectors:
             del cls._connectors[name]
-            logger.info(f"Unregistered connector: {name}")
+            logger.info("connector_unregistered", name=name)
 
     @classmethod
     def get(cls, name: str) -> JobConnector | None:
@@ -144,7 +146,7 @@ class ConnectorManager:
             cache_service = JobCacheService(db)
             cached_result = await cache_service.get_search_result(params, name)
             if cached_result is not None:
-                logger.info(f"Returning cached results for {name}")
+                logger.info("cache_hit", connector=name)
                 return cached_result
 
         # Fetch from connector
@@ -155,7 +157,7 @@ class ConnectorManager:
             try:
                 await cache_service.set_search_result(params, name, result)
             except Exception as e:
-                logger.warning(f"Failed to cache search result: {e}")
+                logger.warning("cache_write_failed", error=str(e))
 
         return result
 
@@ -207,7 +209,7 @@ class ConnectorManager:
                 cache_service = JobCacheService(db)
                 cached = await cache_service.get_search_result(params, connector.name)
                 if cached is not None:
-                    logger.info(f"Cache hit for {connector.name}")
+                    logger.info("cache_hit", connector=connector.name)
                     return cached
 
             result = await connector.search(params)
@@ -216,7 +218,7 @@ class ConnectorManager:
                 try:
                     await cache_service.set_search_result(params, connector.name, result)
                 except Exception as e:
-                    logger.warning(f"Failed to cache result for {connector.name}: {e}")
+                    logger.warning("cache_write_failed", connector=connector.name, error=str(e))
 
             return result
 
@@ -232,10 +234,10 @@ class ConnectorManager:
         for connector, result in zip(connectors, results, strict=True):
             if isinstance(result, ConnectorError):
                 errors[connector.name] = result.message
-                logger.warning(f"Connector {connector.name} failed: {result.message}")
+                logger.warning("connector_failed", connector=connector.name, error=result.message)
             elif isinstance(result, BaseException):
                 errors[connector.name] = str(result)
-                logger.exception(f"Connector {connector.name} failed unexpectedly")
+                logger.exception("connector_failed_unexpected", connector=connector.name)
             elif isinstance(result, SearchResult):
                 all_jobs.extend(result.jobs)
                 total_count += result.total_count
