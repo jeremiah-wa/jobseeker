@@ -1,23 +1,17 @@
 /**
- * Authentication context provider
+ * Authentication context provider using TanStack Query
  */
 
 "use client";
 
+import { createContext, useContext, type ReactNode } from "react";
+import { type User, type LoginData, type RegisterData } from "@/lib/api/auth";
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import { useRouter } from "next/navigation";
-import {
-  authApi,
-  type User,
-  type LoginData,
-  type RegisterData,
-} from "@/lib/api/auth";
+  useUser,
+  useLogin,
+  useRegister,
+  useLogout,
+} from "@/lib/hooks/use-auth";
 
 interface AuthContextType {
   user: User | null;
@@ -31,69 +25,38 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+  // Use TanStack Query for user state
+  const { data: user, isLoading: isUserLoading } = useUser();
 
-  // Load user on mount
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const token = localStorage.getItem("access_token");
-        if (token) {
-          const userData = await authApi.getMe();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error("Failed to load user:", error);
-        // Clear invalid tokens
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Mutation hooks for auth actions
+  const loginMutation = useLogin();
+  const registerMutation = useRegister();
+  const logoutMutation = useLogout();
 
-    loadUser();
-  }, []);
-
+  // Wrapper functions to maintain Promise-based API
   const login = async (data: LoginData) => {
-    const tokens = await authApi.login(data);
-    localStorage.setItem("access_token", tokens.access_token);
-    localStorage.setItem("refresh_token", tokens.refresh_token);
-
-    const userData = await authApi.getMe();
-    setUser(userData);
-    router.push("/dashboard");
+    await loginMutation.mutateAsync(data);
   };
 
   const register = async (data: RegisterData) => {
-    const tokens = await authApi.register(data);
-    localStorage.setItem("access_token", tokens.access_token);
-    localStorage.setItem("refresh_token", tokens.refresh_token);
-
-    const userData = await authApi.getMe();
-    setUser(userData);
-    router.push("/dashboard");
+    await registerMutation.mutateAsync(data);
   };
 
   const logout = async () => {
-    try {
-      await authApi.logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      setUser(null);
-      router.push("/login");
-    }
+    await logoutMutation.mutateAsync();
   };
+
+  // Loading state includes initial user fetch and ongoing mutations
+  const isLoading =
+    isUserLoading ||
+    loginMutation.isPending ||
+    registerMutation.isPending ||
+    logoutMutation.isPending;
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: user ?? null,
         isLoading,
         isAuthenticated: !!user,
         login,
