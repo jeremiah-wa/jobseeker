@@ -20,9 +20,11 @@ dependencies = [
     "argon2-cffi>=23.1.0",
     "python-jose[cryptography]>=3.3.0",
 
-    # LLM
+    # LLM (provider-agnostic via LangChain)
     "langchain>=0.3.0",
-    "langchain-anthropic>=0.3.0",
+    "langchain-anthropic>=0.3.0",  # Premium (production)
+    "langchain-ollama>=0.2.0",     # Local (dev)
+    "langchain-groq>=0.2.0",       # Free API (cloud dev)
 
     # PDF parsing
     "pymupdf>=1.24.0",
