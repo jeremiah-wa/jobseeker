@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/contexts/auth-context";
+import { Toaster } from "@/lib/components/ui/toaster";
+import { TooltipProvider } from "@/lib/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "Jobseeker",
@@ -13,9 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <TooltipProvider>
+          <AuthProvider>{children}</AuthProvider>
+          <Toaster />
+        </TooltipProvider>
       </body>
     </html>
   );
