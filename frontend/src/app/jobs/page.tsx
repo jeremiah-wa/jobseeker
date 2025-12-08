@@ -21,66 +21,76 @@ import { Button } from "@/lib/components/ui/button";
 function JobSearchContent() {
   const {
     params,
-    query,
+    keywords,
+    location,
     filterValues,
     page,
-    setQuery,
-    setFilters,
+    search,
+    setFilter,
     clearFilters,
     setPage,
   } = useJobSearchParams();
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, error } = useJobSearch(params);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
+      {/* Header with Search */}
+      <header className="border-b border-border bg-primary/5">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+          <div className="mb-4 flex items-center gap-3">
             <Briefcase className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Job Search</h1>
-              <p className="text-sm text-muted-foreground">
-                Find your next opportunity
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold text-foreground">Job Search</h1>
           </div>
+          <SearchBar
+            keywords={keywords}
+            location={location}
+            onSearch={search}
+          />
         </div>
       </header>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <SearchBar value={query} onChange={setQuery} />
-        </div>
-
-        {/* Mobile Filter Toggle */}
-        <div className="mb-4 lg:hidden">
+        {/* Results Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            {data && (
+              <h2 className="text-lg font-semibold">
+                {data.total_count.toLocaleString()} jobs
+                {location && (
+                  <span className="font-normal text-muted-foreground">
+                    {" "}
+                    in {location}
+                  </span>
+                )}
+              </h2>
+            )}
+          </div>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setShowFilters(!showFilters)}
-            className="w-full"
+            className="lg:hidden"
           >
             <SlidersHorizontal className="mr-2 h-4 w-4" />
-            {showFilters ? "Hide Filters" : "Show Filters"}
+            Filters
           </Button>
         </div>
 
         <div className="flex flex-col gap-6 lg:flex-row">
           {/* Filters Sidebar */}
           <aside
-            className={`w-full shrink-0 lg:w-72 ${
-              showFilters ? "block" : "hidden lg:block"
+            className={`w-full shrink-0 lg:block lg:w-64 ${
+              showFilters ? "block" : "hidden"
             }`}
           >
             <FilterPanel
               filters={filterValues}
-              onChange={setFilters}
+              onChange={setFilter}
               onClear={clearFilters}
             />
           </aside>

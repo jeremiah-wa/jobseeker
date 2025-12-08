@@ -4,7 +4,7 @@
 
 "use client";
 
-import { MapPin, DollarSign, Briefcase, Globe } from "lucide-react";
+import { DollarSign, Briefcase, Globe } from "lucide-react";
 import { Input } from "@/lib/components/ui/input";
 import { Label } from "@/lib/components/ui/label";
 import {
@@ -27,7 +27,6 @@ const JOB_TYPES: { value: JobType; label: string }[] = [
 ];
 
 export interface FilterValues {
-  location: string;
   salaryMin: string;
   salaryMax: string;
   jobType: JobType | "";
@@ -36,24 +35,16 @@ export interface FilterValues {
 
 interface FilterPanelProps {
   filters: FilterValues;
-  onChange: (filters: FilterValues) => void;
+  onChange: (
+    key: keyof FilterValues,
+    value: FilterValues[keyof FilterValues]
+  ) => void;
   onClear: () => void;
 }
 
 export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
-  const updateFilter = <K extends keyof FilterValues>(
-    key: K,
-    value: FilterValues[K]
-  ) => {
-    onChange({ ...filters, [key]: value });
-  };
-
   const hasActiveFilters =
-    filters.location ||
-    filters.salaryMin ||
-    filters.salaryMax ||
-    filters.jobType ||
-    filters.remote;
+    filters.salaryMin || filters.salaryMax || filters.jobType || filters.remote;
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-4">
@@ -71,43 +62,18 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
         )}
       </div>
 
-      {/* Location */}
-      <div className="space-y-2">
-        <Label htmlFor="location" className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4" />
-          Location
-        </Label>
-        <Input
-          id="location"
-          placeholder="e.g., London, Remote"
-          value={filters.location}
-          onChange={(e) => updateFilter("location", e.target.value)}
-        />
-      </div>
-
       {/* Salary Range */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2 text-sm">
           <DollarSign className="h-4 w-4" />
-          Salary Range
+          Minimum Salary
         </Label>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            placeholder="Min"
-            value={filters.salaryMin}
-            onChange={(e) => updateFilter("salaryMin", e.target.value)}
-            className="w-full"
-          />
-          <span className="text-muted-foreground">-</span>
-          <Input
-            type="number"
-            placeholder="Max"
-            value={filters.salaryMax}
-            onChange={(e) => updateFilter("salaryMax", e.target.value)}
-            className="w-full"
-          />
-        </div>
+        <Input
+          type="number"
+          placeholder="e.g., 50000"
+          value={filters.salaryMin}
+          onChange={(e) => onChange("salaryMin", e.target.value)}
+        />
       </div>
 
       {/* Job Type */}
@@ -119,7 +85,7 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
         <Select
           value={filters.jobType || "any"}
           onValueChange={(value) =>
-            updateFilter("jobType", value === "any" ? "" : (value as JobType))
+            onChange("jobType", value === "any" ? "" : (value as JobType))
           }
         >
           <SelectTrigger id="jobType">
@@ -148,7 +114,7 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
         <Switch
           id="remote"
           checked={filters.remote}
-          onCheckedChange={(checked) => updateFilter("remote", checked)}
+          onCheckedChange={(checked) => onChange("remote", checked)}
         />
       </div>
     </div>
