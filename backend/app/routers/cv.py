@@ -1,6 +1,5 @@
 """CV upload and management endpoints."""
 
-import logging
 import uuid
 from typing import Annotated
 
@@ -11,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes
 
 from app.config import settings
+from app.core.logging import get_logger
 from app.db.database import get_db, get_db_session
 from app.db.models.cv import CV, ParsingStatus
 from app.db.models.user import User
@@ -28,7 +28,7 @@ from app.services.cv_parser import CVParserService, CVParsingError
 from app.services.pdf_extractor import PDFExtractionError, PDFExtractorService
 from app.storage import StorageBackend, generate_cv_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -360,7 +360,7 @@ async def _parse_cv_background(
     async with get_db_session() as db:
         cv = await db.get(CV, cv_id)
         if cv is None:
-            logger.error(f"CV {cv_id} not found for parsing")
+            logger.error("cv_not_found", cv_id=str(cv_id))
             return
 
         try:
@@ -370,14 +370,14 @@ async def _parse_cv_background(
             await db.commit()
 
             # Extract text from PDF
-            logger.info(f"Extracting text from CV {cv_id}")
+            logger.info("cv_text_extraction_started", cv_id=str(cv_id))
             extractor = PDFExtractorService()
             raw_text = extractor.extract_text_clean(pdf_content)
             cv.raw_text = raw_text
             await db.commit()
 
             # Parse with LLM
-            logger.info(f"Parsing CV {cv_id} with LLM")
+            logger.info("cv_llm_parsing_started", cv_id=str(cv_id))
             parser = CVParserService()
             parsed_data = await parser.parse_cv(raw_text)
 
@@ -387,22 +387,22 @@ async def _parse_cv_background(
             cv.parsing_error = None
             await db.commit()
 
-            logger.info(f"CV {cv_id} parsed successfully")
+            logger.info("cv_parsing_completed", cv_id=str(cv_id))
 
         except PDFExtractionError as e:
-            logger.error(f"PDF extraction failed for CV {cv_id}: {e}")
+            logger.error("pdf_extraction_failed", cv_id=str(cv_id), error=str(e))
             cv.parsing_status = ParsingStatus.FAILED
             cv.parsing_error = f"PDF extraction failed: {e}"
             await db.commit()
 
         except CVParsingError as e:
-            logger.error(f"CV parsing failed for CV {cv_id}: {e}")
+            logger.error("cv_parsing_failed", cv_id=str(cv_id), error=str(e))
             cv.parsing_status = ParsingStatus.FAILED
             cv.parsing_error = f"CV parsing failed: {e}"
             await db.commit()
 
         except Exception as e:
-            logger.exception(f"Unexpected error parsing CV {cv_id}: {e}")
+            logger.exception("cv_parsing_unexpected_error", cv_id=str(cv_id), error=str(e))
             cv.parsing_status = ParsingStatus.FAILED
             cv.parsing_error = f"Unexpected error: {e}"
             await db.commit()
@@ -549,6 +549,6 @@ async def update_parsed_data(
     await db.commit()
     await db.refresh(cv)
 
-    logger.info(f"CV {cv_id} parsed data manually updated by user {current_user.id}")
+    logger.info("cv_parsed_data_updated", cv_id=str(cv_id), user_id=str(current_user.id))
 
     return CVResponse.model_validate(cv)
