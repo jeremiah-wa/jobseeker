@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from app.connectors.base import ConnectorError, JobConnector
 from app.schemas.job import (
@@ -12,6 +12,9 @@ from app.schemas.job import (
     JobSearchParams,
     SearchResult,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +112,18 @@ class ConnectorManager:
         ]
 
     @classmethod
-    async def search(cls, name: str, params: JobSearchParams) -> SearchResult:
+    async def search(
+        cls,
+        name: str,
+        params: JobSearchParams,
+        db: "AsyncSession | None" = None,
+    ) -> SearchResult:
         """Search a specific connector.
 
         Args:
             name: The connector name.
             params: Search parameters.
+            db: Optional database session for caching.
 
         Returns:
             Search results from the connector.
@@ -128,13 +137,34 @@ class ConnectorManager:
         if not connector.is_available():
             raise ValueError(f"Connector '{name}' is not available")
 
-        return await connector.search(params)
+        # Check cache if db session provided
+        if db is not None:
+            from app.services.cache import JobCacheService
+
+            cache_service = JobCacheService(db)
+            cached_result = await cache_service.get_search_result(params, name)
+            if cached_result is not None:
+                logger.info(f"Returning cached results for {name}")
+                return cached_result
+
+        # Fetch from connector
+        result = await connector.search(params)
+
+        # Cache the result if db session provided
+        if db is not None:
+            try:
+                await cache_service.set_search_result(params, name, result)
+            except Exception as e:
+                logger.warning(f"Failed to cache search result: {e}")
+
+        return result
 
     @classmethod
     async def search_all(
         cls,
         params: JobSearchParams,
         sources: list[str] | None = None,
+        db: "AsyncSession | None" = None,
     ) -> AggregatedSearchResult:
         """Search across multiple connectors simultaneously.
 
@@ -142,6 +172,7 @@ class ConnectorManager:
             params: Search parameters.
             sources: Optional list of connector names to search.
                     If None, searches all available connectors.
+            db: Optional database session for caching.
 
         Returns:
             Aggregated results from all searched connectors.
@@ -167,8 +198,29 @@ class ConnectorManager:
                 errors={},
             )
 
-        # Search all connectors concurrently
-        tasks = [connector.search(params) for connector in connectors]
+        # Search all connectors concurrently (with caching if db provided)
+        async def search_with_cache(connector: JobConnector) -> SearchResult:
+            """Search a connector with optional caching."""
+            if db is not None:
+                from app.services.cache import JobCacheService
+
+                cache_service = JobCacheService(db)
+                cached = await cache_service.get_search_result(params, connector.name)
+                if cached is not None:
+                    logger.info(f"Cache hit for {connector.name}")
+                    return cached
+
+            result = await connector.search(params)
+
+            if db is not None:
+                try:
+                    await cache_service.set_search_result(params, connector.name, result)
+                except Exception as e:
+                    logger.warning(f"Failed to cache result for {connector.name}: {e}")
+
+            return result
+
+        tasks = [search_with_cache(connector) for connector in connectors]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Aggregate results
