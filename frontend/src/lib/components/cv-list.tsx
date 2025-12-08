@@ -4,9 +4,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { cvApi, type CVListItem } from "@/lib/api/cv";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,68 +20,52 @@ import { Button } from "@/lib/components/ui/button";
 import { Badge } from "@/lib/components/ui/badge";
 import { Skeleton } from "@/lib/components/ui/skeleton";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useCVs, useDeleteCV, useSetPrimaryCV } from "@/lib/hooks/use-cv";
 import { FileText, Star } from "lucide-react";
 
-interface CVListProps {
-  refreshTrigger?: number;
-}
-
-export function CVList({ refreshTrigger }: CVListProps) {
-  const [cvs, setCvs] = useState<CVListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function CVList() {
   const { toast } = useToast();
+  const { data: cvs = [], isLoading, error } = useCVs();
 
-  const loadCVs = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const data = await cvApi.list();
-      setCvs(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load CVs");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCVs();
-  }, [refreshTrigger]);
-
-  const handleDelete = async (cvId: string, filename: string) => {
-    try {
-      await cvApi.delete(cvId);
+  const deleteCV = useDeleteCV({
+    onSuccess: (_, cvId) => {
+      const cv = cvs.find((c) => c.id === cvId);
       toast({
         title: "CV deleted",
-        description: `"${filename}" has been removed.`,
+        description: `"${cv?.filename}" has been removed.`,
       });
-      await loadCVs();
-    } catch (err) {
+    },
+    onError: (err) => {
       toast({
         variant: "destructive",
         title: "Failed to delete CV",
         description: err instanceof Error ? err.message : "An error occurred",
       });
-    }
-  };
+    },
+  });
 
-  const handleSetPrimary = async (cvId: string, filename: string) => {
-    try {
-      await cvApi.setPrimary(cvId);
+  const setPrimaryCV = useSetPrimaryCV({
+    onSuccess: (updatedCV) => {
       toast({
         title: "Primary CV updated",
-        description: `"${filename}" is now your primary CV.`,
+        description: `"${updatedCV.filename}" is now your primary CV.`,
       });
-      await loadCVs();
-    } catch (err) {
+    },
+    onError: (err) => {
       toast({
         variant: "destructive",
         title: "Failed to set primary CV",
         description: err instanceof Error ? err.message : "An error occurred",
       });
-    }
+    },
+  });
+
+  const handleDelete = (cvId: string) => {
+    deleteCV.mutate(cvId);
+  };
+
+  const handleSetPrimary = (cvId: string) => {
+    setPrimaryCV.mutate(cvId);
   };
 
   if (isLoading) {
@@ -114,7 +96,7 @@ export function CVList({ refreshTrigger }: CVListProps) {
   if (error) {
     return (
       <div className="rounded-md bg-destructive/10 p-4">
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">{error.message}</p>
       </div>
     );
   }
@@ -170,7 +152,7 @@ export function CVList({ refreshTrigger }: CVListProps) {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSetPrimary(cv.id, cv.filename);
+                  handleSetPrimary(cv.id);
                 }}
                 className="border border-primary/20 bg-primary/5 text-primary hover:border-primary hover:bg-primary hover:text-primary-foreground"
               >
@@ -200,7 +182,7 @@ export function CVList({ refreshTrigger }: CVListProps) {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => handleDelete(cv.id, cv.filename)}
+                    onClick={() => handleDelete(cv.id)}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     Delete
