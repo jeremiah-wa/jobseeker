@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 2
     upload_dir: str = "/data/uploads"
 
+    # Rate limiting (requests per minute by tier)
+    rate_limit_free: int = 30
+    rate_limit_premium: int = 100
+    rate_limit_window_seconds: int = 60
+
     @cached_property
     def cors_origins_list(self) -> list[str]:
         """Get CORS origins as a list (comma-separated string to list)."""
