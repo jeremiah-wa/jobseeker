@@ -1,8 +1,9 @@
 """Adzuna job connector implementation."""
 
-import logging
+import time
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 from tenacity import (
@@ -19,9 +20,10 @@ from app.connectors.base import (
     ConnectorRateLimitError,
     JobConnector,
 )
+from app.core.logging import get_logger
 from app.schemas.job import Job, JobSearchParams, JobType, SearchResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Adzuna contract_type to JobType mapping
 CONTRACT_TYPE_MAP: dict[str | None, JobType | None] = {
@@ -99,20 +101,85 @@ class AdzunaConnector(JobConnector):
         if not self.is_available():
             raise ConnectorAuthError(self.name, "API credentials not configured")
 
+        # Log incoming search params for debugging
+        logger.debug(
+            "adzuna_search_params",
+            keywords=params.keywords,
+            location=params.location,
+            radius_km=params.radius_km,
+            salary_min=params.salary_min,
+            salary_max=params.salary_max,
+            job_type=params.job_type.value if params.job_type else None,
+            page=params.page,
+            per_page=params.per_page,
+        )
+
         # Build request URL and parameters
         url = f"{self.BASE_URL}/{self._country}/search/{params.page}"
         query_params = self._build_query_params(params)
 
-        logger.debug(f"Adzuna search: {url} with params: {query_params}")
+        # Build copyable URL for debugging (redact API key for safety)
+        debug_params = {**query_params, "app_key": "REDACTED"}
+        full_url = f"{url}?{urlencode(query_params)}"
+        debug_url = f"{url}?{urlencode(debug_params)}"
+
+        logger.debug(
+            "adzuna_request_start",
+            url=url,
+            country=self._country,
+            page=params.page,
+            params=debug_params,
+            curl_command=f"curl '{debug_url}'",
+        )
+
+        start_time = time.monotonic()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.get(url, params=query_params)
             except httpx.RequestError as e:
+                elapsed_ms = (time.monotonic() - start_time) * 1000
+                logger.error(
+                    "adzuna_request_error",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    elapsed_ms=round(elapsed_ms, 2),
+                    full_url=full_url,
+                )
                 raise ConnectorAPIError(self.name, f"Request failed: {e}") from e
+
+            elapsed_ms = (time.monotonic() - start_time) * 1000
+
+            logger.debug(
+                "adzuna_response_received",
+                status_code=response.status_code,
+                elapsed_ms=round(elapsed_ms, 2),
+                content_length=len(response.content),
+                headers=dict(response.headers),
+            )
+
+            if response.status_code != 200:
+                logger.error(
+                    "adzuna_api_error",
+                    status_code=response.status_code,
+                    response_body=response.text[:1000],  # Truncate for safety
+                    elapsed_ms=round(elapsed_ms, 2),
+                    debug_url=debug_url,
+                )
 
             self._handle_response_errors(response)
             data = response.json()
+
+        # Log response summary
+        result_count = len(data.get("results", []))
+        total_count = data.get("count", 0)
+        logger.debug(
+            "adzuna_response_parsed",
+            result_count=result_count,
+            total_count=total_count,
+            page=params.page,
+            has_results=result_count > 0,
+        )
 
         return self._parse_response(data, params)
 
@@ -257,7 +324,7 @@ class AdzunaConnector(JobConnector):
                 # Adzuna returns ISO format: "2024-01-15T10:30:00Z"
                 posted_at = datetime.fromisoformat(created.replace("Z", "+00:00"))
             except (ValueError, AttributeError):
-                logger.warning(f"Failed to parse date: {created}")
+                logger.warning("date_parse_failed", raw_date=created)
 
         # Map contract_type to JobType
         contract_type = item.get("contract_type")
