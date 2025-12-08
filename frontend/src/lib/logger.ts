@@ -2,41 +2,28 @@
  * Structured logging configuration using pino.
  *
  * This module configures pino for server-side logging with:
- * - JSON output in production (for log aggregation tools like Docker logs)
- * - Human-readable colored output in development
+ * - JSON output for log aggregation tools (Docker logs, CloudWatch, etc.)
  * - Request ID correlation with backend via X-Request-ID header
+ *
+ * Note: We use JSON output in all environments for consistency.
+ * Use `docker compose logs` or `pino-pretty` CLI for human-readable output:
+ *   docker compose logs frontend | pnpm pino-pretty
  */
 
 import pino from "pino";
 
-const isDevelopment = process.env.NODE_ENV !== "production";
 const logLevel = process.env.LOG_LEVEL || "info";
 
 /**
  * Base logger configuration.
- * In development: pretty-printed, colored output
- * In production: JSON output for log aggregation
+ * JSON output for log aggregation - pipe through pino-pretty for dev viewing.
  */
 export const logger = pino({
   level: logLevel.toLowerCase(),
-  ...(isDevelopment
-    ? {
-        transport: {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname",
-          },
-        },
-      }
-    : {
-        // Production: JSON output
-        formatters: {
-          level: (label) => ({ level: label }),
-        },
-        timestamp: pino.stdTimeFunctions.isoTime,
-      }),
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
 });
 
 /**
