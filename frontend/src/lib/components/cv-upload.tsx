@@ -5,20 +5,31 @@
 "use client";
 
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
-import { cvApi } from "@/lib/api/cv";
 import { env } from "@/lib/env";
 import { Upload } from "lucide-react";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useUploadCV } from "@/lib/hooks/use-cv";
 
-interface CVUploadProps {
-  onUploadSuccess?: () => void;
-}
-
-export function CVUpload({ onUploadSuccess }: CVUploadProps) {
+export function CVUpload() {
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const uploadCV = useUploadCV({
+    onSuccess: (response) => {
+      toast({
+        title: "CV uploaded",
+        description: `"${response.filename}" uploaded successfully!`,
+      });
+    },
+    onError: (err) => {
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Failed to upload CV",
+      });
+    },
+  });
 
   const validateFile = (file: File): string | null => {
     // Check file type
@@ -35,7 +46,7 @@ export function CVUpload({ onUploadSuccess }: CVUploadProps) {
     return null;
   };
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = (file: File) => {
     const validationError = validateFile(file);
     if (validationError) {
       toast({
@@ -46,25 +57,10 @@ export function CVUpload({ onUploadSuccess }: CVUploadProps) {
       return;
     }
 
-    setIsUploading(true);
-
-    try {
-      const response = await cvApi.upload(file);
-      toast({
-        title: "CV uploaded",
-        description: `"${response.filename}" uploaded successfully!`,
-      });
-      onUploadSuccess?.();
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Upload failed",
-        description: err instanceof Error ? err.message : "Failed to upload CV",
-      });
-    } finally {
-      setIsUploading(false);
-    }
+    uploadCV.mutate(file);
   };
+
+  const isUploading = uploadCV.isPending;
 
   const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();

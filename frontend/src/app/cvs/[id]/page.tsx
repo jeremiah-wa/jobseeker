@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { CV, cvApi, ParsingStatus } from "@/lib/api/cv";
+import { ParsingStatus } from "@/lib/api/cv";
+import {
+  useCV,
+  useCVPreview,
+  useDeleteCV,
+  useSetPrimaryCV,
+  useParseCV,
+  useUpdateParsedData,
+  useDownloadCV,
+} from "@/lib/hooks/use-cv";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,20 +104,23 @@ export default function CVDetailPage() {
   const router = useRouter();
   const cvId = params.id as string;
 
-  const [cv, setCv] = useState<CV | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSettingPrimary, setIsSettingPrimary] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  // TanStack Query hooks for data fetching
+  const { data: cv, isLoading, error } = useCV(cvId);
+  const { data: pdfUrl, isLoading: isLoadingPreview } = useCVPreview(cvId);
 
-  // Edit parsed data state
+  // Mutation hooks
+  const deleteCV = useDeleteCV({
+    onSuccess: () => router.push("/cvs"),
+  });
+  const setPrimaryCV = useSetPrimaryCV();
+  const parseCV = useParseCV();
+  const updateParsedData = useUpdateParsedData({
+    onSuccess: () => setIsEditDialogOpen(false),
+  });
+  const downloadCV = useDownloadCV();
+
+  // Edit parsed data state (local UI state)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editTab, setEditTab] = useState("contact");
   const [editForm, setEditForm] = useState({
     full_name: "",
@@ -139,110 +151,21 @@ export default function CVDetailPage() {
   const [newCertification, setNewCertification] = useState("");
   const [newLanguage, setNewLanguage] = useState("");
 
-  const loadPreview = useCallback(async () => {
-    if (!cvId) return;
+  // Derived loading states from mutations
+  const isDeleting = deleteCV.isPending;
+  const isSettingPrimary = setPrimaryCV.isPending;
+  const isParsing = parseCV.isPending;
+  const isDownloading = downloadCV.isPending;
+  const isSavingEdit = updateParsedData.isPending;
 
-    try {
-      setIsLoadingPreview(true);
-      const url = await cvApi.getPreviewUrl(cvId);
-      setPdfUrl(url);
-    } catch (err) {
-      console.error("Failed to load preview:", err);
-    } finally {
-      setIsLoadingPreview(false);
-    }
-  }, [cvId]);
-
-  useEffect(() => {
-    const fetchCV = async () => {
-      try {
-        setIsLoading(true);
-        const data = await cvApi.get(cvId);
-        setCv(data);
-        // Load preview after CV data is fetched
-        loadPreview();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load CV");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (cvId) {
-      fetchCV();
-    }
-  }, [cvId, loadPreview]);
-
-  // Cleanup blob URL and polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pdfUrl) {
-        window.URL.revokeObjectURL(pdfUrl);
-      }
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, [pdfUrl]);
-
-  // Poll for parsing status when processing
-  useEffect(() => {
-    if (
-      cv?.parsing_status === "processing" ||
-      cv?.parsing_status === "pending"
-    ) {
-      pollingRef.current = setInterval(async () => {
-        try {
-          const updated = await cvApi.get(cvId);
-          setCv(updated);
-          if (
-            updated.parsing_status === "completed" ||
-            updated.parsing_status === "failed"
-          ) {
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-              pollingRef.current = null;
-            }
-          }
-        } catch (err) {
-          console.error("Failed to poll CV status:", err);
-        }
-      }, 2000);
-    }
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
-  }, [cv?.parsing_status, cvId]);
-
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!cv) return;
-
-    try {
-      setIsDeleting(true);
-      await cvApi.delete(cv.id);
-      router.push("/cvs");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete CV");
-      setIsDeleting(false);
-    }
+    deleteCV.mutate(cv.id);
   };
 
-  const handleSetPrimary = async () => {
+  const handleSetPrimary = () => {
     if (!cv) return;
-
-    try {
-      setIsSettingPrimary(true);
-      const updated = await cvApi.setPrimary(cv.id);
-      setCv(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set as primary");
-    } finally {
-      setIsSettingPrimary(false);
-    }
+    setPrimaryCV.mutate(cv.id);
   };
 
   const formatDate = (dateString: string) => {
@@ -255,33 +178,14 @@ export default function CVDetailPage() {
     });
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!cv) return;
-
-    try {
-      setIsDownloading(true);
-      await cvApi.download(cv.id, cv.filename);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to download CV");
-    } finally {
-      setIsDownloading(false);
-    }
+    downloadCV.mutate({ cvId: cv.id, filename: cv.filename });
   };
 
-  const handleParse = async () => {
+  const handleParse = () => {
     if (!cv) return;
-
-    try {
-      setIsParsing(true);
-      await cvApi.parse(cv.id);
-      // Refetch to get updated status
-      const updated = await cvApi.get(cv.id);
-      setCv(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start parsing");
-    } finally {
-      setIsParsing(false);
-    }
+    parseCV.mutate(cv.id);
   };
 
   const openEditDialog = () => {
@@ -316,12 +220,11 @@ export default function CVDetailPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     if (!cv) return;
-
-    try {
-      setIsSavingEdit(true);
-      const updated = await cvApi.updateParsedData(cv.id, {
+    updateParsedData.mutate({
+      cvId: cv.id,
+      data: {
         full_name: editForm.full_name,
         email: editForm.email || null,
         phone: editForm.phone || null,
@@ -346,14 +249,8 @@ export default function CVDetailPage() {
         })),
         certifications: editForm.certifications,
         languages: editForm.languages,
-      });
-      setCv(updated);
-      setIsEditDialogOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save changes");
-    } finally {
-      setIsSavingEdit(false);
-    }
+      },
+    });
   };
 
   // Helper functions for array editing
@@ -508,7 +405,7 @@ export default function CVDetailPage() {
           <h2 className="text-lg font-semibold text-foreground">
             Error Loading CV
           </h2>
-          <p className="mt-1 text-muted-foreground">{error}</p>
+          <p className="mt-1 text-muted-foreground">{error?.message}</p>
           <Link
             href="/cvs"
             className="mt-4 inline-block text-primary hover:text-primary/80"

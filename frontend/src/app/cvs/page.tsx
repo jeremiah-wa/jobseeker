@@ -4,7 +4,6 @@
 
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { ProtectedRoute } from "@/lib/components/protected-route";
@@ -30,12 +29,6 @@ import { LogOut, Settings, User } from "lucide-react";
 
 export default function CVsPage() {
   const { user, logout } = useAuth();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  const handleUploadSuccess = () => {
-    // Trigger CV list refresh
-    setRefreshTrigger((prev) => prev + 1);
-  };
 
   return (
     <ProtectedRoute>
@@ -131,7 +124,7 @@ export default function CVsPage() {
               </CardHeader>
               <CardContent>
                 <div className="mx-auto max-w-2xl">
-                  <CVUpload onUploadSuccess={handleUploadSuccess} />
+                  <CVUpload />
                 </div>
               </CardContent>
             </Card>
@@ -142,7 +135,7 @@ export default function CVsPage() {
                 <CardTitle>Your CVs</CardTitle>
               </CardHeader>
               <CardContent>
-                <CVList refreshTrigger={refreshTrigger} />
+                <CVList />
               </CardContent>
             </Card>
           </div>
