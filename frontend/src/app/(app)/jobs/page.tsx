@@ -13,7 +13,6 @@ import {
 } from "@/lib/components/jobs";
 import { useJobSearch } from "@/lib/hooks/use-jobs";
 import { useJobSearchParams } from "@/lib/hooks/use-job-search-params";
-import { ProtectedRoute } from "@/lib/components/protected-route";
 import type { Job } from "@/lib/api/jobs";
 import { Briefcase, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/lib/components/ui/button";
@@ -37,13 +36,15 @@ function JobSearchContent() {
   const { data, isLoading, error } = useJobSearch(params);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header with Search */}
-      <header className="border-b border-border bg-primary/5">
+    <>
+      {/* Search Header */}
+      <div className="border-b border-border bg-primary/5">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-4 flex items-center gap-3">
-            <Briefcase className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Job Search</h1>
+            <Briefcase className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold text-foreground">
+              Job Search
+            </h1>
           </div>
           <SearchBar
             keywords={keywords}
@@ -51,7 +52,7 @@ function JobSearchContent() {
             onSearch={search}
           />
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -139,41 +140,36 @@ function JobSearchContent() {
         isOpen={!!selectedJob}
         onClose={() => setSelectedJob(null)}
       />
-    </div>
+    </>
   );
 }
 
 export default function JobsPage() {
   return (
-    <ProtectedRoute>
-      <Suspense fallback={<JobSearchPageSkeleton />}>
-        <JobSearchContent />
-      </Suspense>
-    </ProtectedRoute>
+    <Suspense fallback={<JobSearchPageSkeleton />}>
+      <JobSearchContent />
+    </Suspense>
   );
 }
 
 function JobSearchPageSkeleton() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
+    <>
+      <div className="border-b border-border bg-primary/5">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <Briefcase className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Job Search</h1>
-              <p className="text-sm text-muted-foreground">
-                Find your next opportunity
-              </p>
-            </div>
+          <div className="mb-4 flex items-center gap-3">
+            <Briefcase className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold text-foreground">
+              Job Search
+            </h1>
           </div>
+          <div className="h-10 animate-pulse rounded-md bg-muted" />
         </div>
-      </header>
+      </div>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-10 rounded-md bg-muted" />
           <div className="flex gap-6">
-            <div className="hidden h-96 w-72 rounded-lg bg-muted lg:block" />
+            <div className="hidden h-96 w-64 rounded-lg bg-muted lg:block" />
             <div className="flex-1 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="h-32 rounded-lg bg-muted" />
@@ -182,6 +178,6 @@ function JobSearchPageSkeleton() {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 }
